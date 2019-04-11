@@ -1038,9 +1038,30 @@ void request_evaluate(const llvm::json::Object &request) {
     // many cases and it is faster.
     lldb::SBValue value = frame.GetValueForVariablePath(
         expression.data(), lldb::eDynamicDontRunTarget);
+    // Evaluate expression
     if (value.GetError().Fail())
       value = frame.EvaluateExpression(expression.data());
-    if (value.GetError().Fail()) {
+
+    // TODO: Run lldb command.
+    lldb::SBCommandInterpreter interp = g_vsc.debugger.GetCommandInterpreter();
+    lldb::SBCommandReturnObject ret = lldb::SBCommandReturnObject();
+    lldb::ReturnStatus status = interp.HandleCommand(expression.data(), ret);
+    if (ret.Succeeded()) {
+      auto output = ret.GetOutput();
+      *g_vsc.log << "Setting command interp output: " << output << std::endl;
+      lldb::SBError error = lldb::SBError();
+      value.SetValueFromCString(output, error);
+      if (error.Fail()) {
+        *g_vsc.log << "Setting value failed with error: " << error.GetCString() << std::endl;
+      }
+    } else {
+      auto err = ret.GetError();
+      *g_vsc.log << "Setting command interp error: " << err << std::endl;
+      value.SetValueFromCString(err);
+    }
+
+    // Fail with "error: No value"
+    if (value.GetError().Fail() && !ret.Succeeded()) {
       response["success"] = llvm::json::Value(false);
       // This error object must live until we're done with the pointer returned
       // by GetCString().
