@@ -1043,7 +1043,7 @@ void request_evaluate(const llvm::json::Object &request) {
       value = frame.EvaluateExpression(expression.data());
 
     // TODO: Run lldb command.
-    lldb::SBCommandInterpreter interp = g_vsc.debugger.GetCommandInterpreter();
+    /*lldb::SBCommandInterpreter interp = g_vsc.debugger.GetCommandInterpreter();
     lldb::SBCommandReturnObject ret = lldb::SBCommandReturnObject();
     lldb::ReturnStatus status = interp.HandleCommand(expression.data(), ret);
     if (ret.Succeeded()) {
@@ -1058,10 +1058,10 @@ void request_evaluate(const llvm::json::Object &request) {
       auto err = ret.GetError();
       *g_vsc.log << "Setting command interp error: " << err << std::endl;
       value.SetValueFromCString(err);
-    }
+    }*/
 
     // Fail with "error: No value"
-    if (value.GetError().Fail() && !ret.Succeeded()) {
+    if (value.GetError().Fail() /*&& !ret.Succeeded()*/) {
       response["success"] = llvm::json::Value(false);
       // This error object must live until we're done with the pointer returned
       // by GetCString().
@@ -1346,6 +1346,7 @@ void request_launch_remote(const llvm::json::Object &request) {
   if (!program.empty() && !remote_program.empty()) {
     *g_vsc.log << "Setting target to: " << program.data() << std::endl;
     g_vsc.target = g_vsc.debugger.CreateTarget(program.data(), triple.data(), platform, true, error);
+    //g_vsc.target = g_vsc.debugger.CreateTarget(program.data(), "arm64e", nullptr, true, error);
     if (!g_vsc.target.IsValid() || error.Fail()) {
       *g_vsc.log << "Setting target failed." << std::endl;
       response["success"] = llvm::json::Value(false);
@@ -2936,6 +2937,7 @@ int main(int argc, char *argv[]) {
       printf("Listening on port %i...\n", portno);
       SOCKET socket_fd = AcceptConnection(portno);
       if (socket_fd >= 0) {
+        printf("Connection from sokcet %i...\n", socket_fd);
         g_vsc.input.descriptor = StreamDescriptor::from_socket(socket_fd, true);
         g_vsc.output.descriptor =
             StreamDescriptor::from_socket(socket_fd, false);

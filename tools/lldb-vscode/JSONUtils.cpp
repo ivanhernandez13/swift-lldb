@@ -136,18 +136,20 @@ void SetValueForKey(lldb::SBValue &v, llvm::json::Object &object,
 
   std::string result;
   llvm::raw_string_ostream strm(result);
-  if (!value.empty()) {
-    strm << value;
-    if (!summary.empty())
-      strm << ' ' << summary;
-  } else if (!summary.empty()) {
+
+  auto typeName = type_name.empty() ? "unknown" : type_name;
+  strm << "(" << typeName << ")";
+
+  if (!summary.empty()) {
     strm << ' ' << summary;
-  } else if (!type_name.empty()) {
-    strm << type_name;
+  } else if (!value.empty()) {
+    strm << ' ' << (value == "0x0000000000000000" ? "nil" : value);
+  } else {
     lldb::addr_t address = v.GetLoadAddress();
     if (address != LLDB_INVALID_ADDRESS)
-      strm << " @ " << llvm::format_hex(address, 0);
+      strm << " " << llvm::format_hex(address, 0);
   }
+
   strm.flush();
   EmplaceSafeString(object, key, result);
 }
