@@ -1597,7 +1597,9 @@ bool Target::MergeArchitecture(const ArchSpec &arch_spec) {
       return SetArchitecture(merged_arch);
     } else {
       // The new architecture is different, we just need to replace it
-      return SetArchitecture(arch_spec);
+      //return SetArchitecture(arch_spec);
+      // Or don't
+      return SetArchitecture(m_arch.GetSpec());
     }
   }
   return false;

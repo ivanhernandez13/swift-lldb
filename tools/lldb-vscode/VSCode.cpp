@@ -49,6 +49,8 @@ VSCode::VSCode()
 #endif
   if (log_file_path)
     log.reset(new std::ofstream(log_file_path));
+  else
+    log.reset(new std::ofstream("/Users/ivanhernandez/Desktop/lldb-vscode.log"));
 }
 
 VSCode::~VSCode() {

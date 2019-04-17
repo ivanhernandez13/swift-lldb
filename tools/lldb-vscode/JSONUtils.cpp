@@ -133,21 +133,37 @@ void SetValueForKey(lldb::SBValue &v, llvm::json::Object &object,
   llvm::StringRef value = v.GetValue();
   llvm::StringRef summary = v.GetSummary();
   llvm::StringRef type_name = v.GetType().GetDisplayTypeName();
+  const auto type_class = v.GetType().GetTypeClass();
 
   std::string result;
   llvm::raw_string_ostream strm(result);
 
-  auto typeName = type_name.empty() ? "unknown" : type_name;
-  strm << "(" << typeName << ")";
+  if (type_class == lldb::eTypeClassObjCObjectPointer) {
+    auto typeName = type_name.empty() ? "unknown" : type_name;
+    strm << "(" << typeName << ")";
 
-  if (!summary.empty()) {
-    strm << ' ' << summary;
-  } else if (!value.empty()) {
-    strm << ' ' << (value == "0x0000000000000000" ? "nil" : value);
+    if (!summary.empty()) {
+      strm << ' ' << summary;
+    } else if (!value.empty()) {
+      strm << ' ' << (value == "0x0000000000000000" ? "nil" : value);
+    } else {
+      lldb::addr_t address = v.GetLoadAddress();
+      if (address != LLDB_INVALID_ADDRESS)
+        strm << " " << llvm::format_hex(address, 0);
+    }
   } else {
-    lldb::addr_t address = v.GetLoadAddress();
-    if (address != LLDB_INVALID_ADDRESS)
-      strm << " " << llvm::format_hex(address, 0);
+    if (!value.empty()) {
+      strm << value;
+      if (!summary.empty())
+        strm << ' ' << summary;
+    } else if (!summary.empty()) {
+      strm << ' ' << summary;
+    } else if (!type_name.empty()) {
+      strm << type_name;
+      lldb::addr_t address = v.GetLoadAddress();
+      if (address != LLDB_INVALID_ADDRESS)
+        strm << " @ " << llvm::format_hex(address, 0);
+    }
   }
 
   strm.flush();

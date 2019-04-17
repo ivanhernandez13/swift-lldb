@@ -1025,11 +1025,44 @@ void request_evaluate(const llvm::json::Object &request) {
   auto arguments = request.getObject("arguments");
   lldb::SBFrame frame = g_vsc.GetLLDBFrame(*arguments);
   const auto expression = GetString(arguments, "expression");
+  const auto context = GetString(arguments, "context");
 
-  if (!expression.empty() && expression[0] == '`') {
+  const auto isRawCommand = !expression.empty()
+    && (context == "repl" || expression[0] == '`');
+  if (isRawCommand) {
+    if (context == "repl") {
+      lldb::SBValue value = frame.GetValueForVariablePath(
+          expression.data(), lldb::eDynamicDontRunTarget);
+
+      if (value.GetError().Success()) {
+        SetValueForKey(value, body, "result");
+        auto value_typename = value.GetType().GetDisplayTypeName();
+        EmplaceSafeString(body, "type", value_typename ? value_typename : NO_TYPENAME);
+        if (value.MightHaveChildren()) {
+          auto variablesReference = VARIDX_TO_VARREF(g_vsc.variables.GetSize());
+          g_vsc.variables.Append(value);
+          body.try_emplace("variablesReference", variablesReference);
+        } else {
+          body.try_emplace("variablesReference", (int64_t)0);
+        }
+        response.try_emplace("body", std::move(body));
+        g_vsc.SendJSON(llvm::json::Value(std::move(response)));
+        return;
+      }
+    }
+
+    // Evaluate expression
+    const auto expr = expression[0] == '`' ? expression.substr(1) : expression;
     auto result = RunLLDBCommands(llvm::StringRef(),
-                                     {expression.substr(1)});
-    EmplaceSafeString(body, "result", result);
+                                     {expr});
+
+    // Split output
+    std::size_t index = result.find("\n");
+    std::string command = result.substr(0, index) + "\n";
+    std::string results = result.substr(index+1);
+
+    g_vsc.SendOutput(OutputType::Console, llvm::StringRef(command + results));
+    EmplaceSafeString(body, "result", llvm::StringRef(""));
     body.try_emplace("variablesReference", (int64_t)0);
   } else {
     // Always try to get the answer from the local variables if possible. If
@@ -1042,26 +1075,8 @@ void request_evaluate(const llvm::json::Object &request) {
     if (value.GetError().Fail())
       value = frame.EvaluateExpression(expression.data());
 
-    // TODO: Run lldb command.
-    /*lldb::SBCommandInterpreter interp = g_vsc.debugger.GetCommandInterpreter();
-    lldb::SBCommandReturnObject ret = lldb::SBCommandReturnObject();
-    lldb::ReturnStatus status = interp.HandleCommand(expression.data(), ret);
-    if (ret.Succeeded()) {
-      auto output = ret.GetOutput();
-      *g_vsc.log << "Setting command interp output: " << output << std::endl;
-      lldb::SBError error = lldb::SBError();
-      value.SetValueFromCString(output, error);
-      if (error.Fail()) {
-        *g_vsc.log << "Setting value failed with error: " << error.GetCString() << std::endl;
-      }
-    } else {
-      auto err = ret.GetError();
-      *g_vsc.log << "Setting command interp error: " << err << std::endl;
-      value.SetValueFromCString(err);
-    }*/
-
     // Fail with "error: No value"
-    if (value.GetError().Fail() /*&& !ret.Succeeded()*/) {
+    if (value.GetError().Fail()) {
       response["success"] = llvm::json::Value(false);
       // This error object must live until we're done with the pointer returned
       // by GetCString().
@@ -1344,7 +1359,7 @@ void request_launch_remote(const llvm::json::Object &request) {
 
   // `target create /path/to/local/app` && `platform select remote-ios`
   if (!program.empty() && !remote_program.empty()) {
-    *g_vsc.log << "Setting target to: " << program.data() << std::endl;
+//    *g_vsc.log << "Setting target to: " << program.data() << std::endl;
     g_vsc.target = g_vsc.debugger.CreateTarget(program.data(), triple.data(), platform, true, error);
     //g_vsc.target = g_vsc.debugger.CreateTarget(program.data(), "arm64e", nullptr, true, error);
     if (!g_vsc.target.IsValid() || error.Fail()) {
@@ -1352,7 +1367,7 @@ void request_launch_remote(const llvm::json::Object &request) {
       response["success"] = llvm::json::Value(false);
       EmplaceSafeString(response, "message", std::string(error.GetCString()));
     }
-    *g_vsc.log << "Set target to: " << program.data() << "!" << std::endl;
+//    *g_vsc.log << "Set target to: " << program.data() << "!" << std::endl;
     //*g_vsc.log << "Executable dir is: " << g_vsc.target.GetExecutable().GetDirectory() << std::endl;
     //*g_vsc.log << "Target Triple: " << g_vsc.target.GetTriple() << std::endl;
 
@@ -1360,7 +1375,7 @@ void request_launch_remote(const llvm::json::Object &request) {
     //lldb::SBFileSpec program_fspec(program.data(), true /*resolve_path*/);
 
     auto module = g_vsc.target.GetModuleAtIndex(0);
-    *g_vsc.log << "Setting module to: " << remote_program_fspec.GetDirectory() << remote_program_fspec.GetFilename() << std::endl;
+//    *g_vsc.log << "Setting module to: " << remote_program_fspec.GetDirectory() << remote_program_fspec.GetFilename() << std::endl;
     module.SetPlatformFileSpec(remote_program_fspec);
     //      *g_vsc.log << "Module triple is: " << module.GetTriple() << std::endl;
     //      *g_vsc.log << "Local file spec is " << module.GetFileSpec().GetDirectory() << module.GetFileSpec().GetFilename() << std::endl;
@@ -1374,14 +1389,14 @@ void request_launch_remote(const llvm::json::Object &request) {
       g_vsc.SendJSON(llvm::json::Value(std::move(response)));
       return;
     }
-    *g_vsc.log << "Set module." << std::endl;
+//    *g_vsc.log << "Set module." << std::endl;
 
     g_vsc.launch_info.SetExecutableFile(remote_program_fspec,
                                         true /*add_as_first_arg*/);
   }
 
   // `platform connect connect://localhost:57101`
-  *g_vsc.log << "Connecting to remote debug server on port " << port << std::endl;
+//  *g_vsc.log << "Connecting to remote debug server on port " << port << std::endl;
   const auto hostURL = "connect://localhost:" + std::to_string(port);
   auto listener = g_vsc.debugger.GetListener();
   g_vsc.debugger.SetAsync(false);
@@ -1389,20 +1404,20 @@ void request_launch_remote(const llvm::json::Object &request) {
   g_vsc.debugger.SetAsync(true);
   auto str = lldb::SBStream();
   process.GetDescription(str);
-  *g_vsc.log << str.GetData() << std::endl;
+//  *g_vsc.log << str.GetData() << std::endl;
   if (error.Fail()) {
     response["success"] = llvm::json::Value(false);
     const auto myerrorstr = "My Custom Error: " + std::string(error.GetCString());
     EmplaceSafeString(response, "message", myerrorstr);
     return;
   } else {
-    *g_vsc.log << "Succesfully connected to remote debug server!" << std::endl;
+//    *g_vsc.log << "Succesfully connected to remote debug server!" << std::endl;
     auto platform = g_vsc.target.GetPlatform();
-    *g_vsc.log << platform.IsValid() << platform.IsConnected() << std::endl;
+//    *g_vsc.log << platform.IsValid() << platform.IsConnected() << std::endl;
     if (platform.IsConnected()) {
-      *g_vsc.log << platform.GetTriple() << std::endl;
-      *g_vsc.log << platform.GetOSDescription() << std::endl;
-    } else { *g_vsc.log << "Platform not connected." << std::endl; }
+//      *g_vsc.log << platform.GetTriple() << std::endl;
+//      *g_vsc.log << platform.GetOSDescription() << std::endl;
+    } else { /**g_vsc.log << "Platform not connected." << std::endl;*/ }
   }
 
   // Extract any extra arguments and append them to our program arguments for
@@ -1441,7 +1456,7 @@ void request_launch_remote(const llvm::json::Object &request) {
   bool doRemoteLaunch = false;
   if (state == lldb::eStateConnected) {
     if (doRemoteLaunch) {
-      *g_vsc.log << "Remote launching!" << std::endl;
+//      *g_vsc.log << "Remote launching!" << std::endl;
       //        if (process.RemoteLaunch(
       //                                 MakeArgv(args).data(),
       //                                 MakeArgv(envs).data(),
@@ -1454,7 +1469,7 @@ void request_launch_remote(const llvm::json::Object &request) {
       //          *g_vsc.log << "Remote launch failed." << std::endl;
       //        }
     } else {
-      *g_vsc.log << "Remote launching with regular Launch()!" << std::endl;
+//      *g_vsc.log << "Remote launching with regular Launch()!" << std::endl;
       g_vsc.target.Launch(g_vsc.launch_info, error);
     }
   } else {
@@ -1467,7 +1482,7 @@ void request_launch_remote(const llvm::json::Object &request) {
     response["success"] = llvm::json::Value(false);
     EmplaceSafeString(response, "message", std::string(error.GetCString()));
   }
-  *g_vsc.log << "Remote launched!" << std::endl;
+//  *g_vsc.log << "Remote launched!" << std::endl;
   g_vsc.SendJSON(llvm::json::Value(std::move(response)));
 
   SendProcessEvent(Launch);
@@ -2937,7 +2952,7 @@ int main(int argc, char *argv[]) {
       printf("Listening on port %i...\n", portno);
       SOCKET socket_fd = AcceptConnection(portno);
       if (socket_fd >= 0) {
-        printf("Connection from sokcet %i...\n", socket_fd);
+        printf("Connection from socket %i...\n", socket_fd);
         g_vsc.input.descriptor = StreamDescriptor::from_socket(socket_fd, true);
         g_vsc.output.descriptor =
             StreamDescriptor::from_socket(socket_fd, false);
@@ -2985,6 +3000,7 @@ int main(int argc, char *argv[]) {
       const auto command = GetString(object, "command");
       auto handler_pos = request_handlers.find(command);
       if (handler_pos != request_handlers.end()) {
+        printf("New Command: '%s'.\n", command.data());
         handler_pos->second(*object);
       } else {
         if (g_vsc.log)
