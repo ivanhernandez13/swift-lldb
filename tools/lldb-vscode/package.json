@@ -69,6 +69,22 @@
 								"type": "string",
 								"description": "Path to the program to debug."
 							},
+              "remoteProgram": {
+                "type": "string",
+                "description": "Path to the program to debug."
+              },
+              "address": {
+                "type": "string",
+                "description": "Address to connect to the remote debug server."
+              },
+              "triple": {
+                "type": "string",
+                "description": "The architecture of the device that will run the program."
+              },
+              "platform": {
+                "type": "string",
+                "description": "The platform we are targeting."
+              },
 							"args": {
 								"type": [ "array", "string" ],
 								"description": "Program arguments.",
