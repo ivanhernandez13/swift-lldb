@@ -1597,7 +1597,10 @@ bool Target::MergeArchitecture(const ArchSpec &arch_spec) {
       return SetArchitecture(merged_arch);
     } else {
       // The new architecture is different, we just need to replace it
-      return SetArchitecture(arch_spec);
+      //return SetArchitecture(arch_spec);
+      // Give precedence to the user set architecture. Used because arm64e is not supported by lldb
+      // but we can get around it by forcing lldb to use arm64 instead.
+      return SetArchitecture(m_arch.GetSpec());
     }
   }
   return false;

@@ -1171,11 +1171,17 @@ namespace {
   //                     acknowledgement, so no body field is required."
   //   }]
   // }
+  void request_launch_remote(const llvm::json::Object &request); // Hijacks request_launch.
   void request_launch(const llvm::json::Object &request) {
+    auto arguments = request.getObject("arguments");
+    if (ObjectContainsKey(*arguments, "address")) {
+      request_launch_remote(request);
+      return;
+    }
+
     llvm::json::Object response;
     lldb::SBError error;
     FillResponse(request, response);
-    auto arguments = request.getObject("arguments");
     g_vsc.init_commands = GetStrings(arguments, "initCommands");
     g_vsc.pre_run_commands = GetStrings(arguments, "preRunCommands");
     g_vsc.stop_commands = GetStrings(arguments, "stopCommands");
@@ -1261,6 +1267,190 @@ namespace {
       response["success"] = llvm::json::Value(false);
       EmplaceSafeString(response, "message", std::string(error.GetCString()));
     }
+    g_vsc.SendJSON(llvm::json::Value(std::move(response)));
+
+    SendProcessEvent(Launch);
+    g_vsc.SendJSON(llvm::json::Value(CreateEventObject("initialized")));
+    // Reenable async events and start the event thread to catch async events.
+    g_vsc.debugger.SetAsync(true);
+  }
+
+#pragma mark Remote Launch Request
+  void request_launch_remote(const llvm::json::Object &request) {
+    llvm::json::Object response;
+    lldb::SBError error;
+    FillResponse(request, response);
+    auto arguments = request.getObject("arguments");
+    g_vsc.init_commands = GetStrings(arguments, "initCommands");
+    g_vsc.pre_run_commands = GetStrings(arguments, "preRunCommands");
+    g_vsc.stop_commands = GetStrings(arguments, "stopCommands");
+    g_vsc.exit_commands = GetStrings(arguments, "exitCommands");
+    g_vsc.stop_at_entry = GetBoolean(arguments, "stopOnEntry", false);
+    const auto address = GetString(arguments, "address");
+    const auto debuggerRoot = GetString(arguments, "debuggerRoot");
+
+    // This is a hack for loading DWARF in .o files on Mac where the .o files
+    // in the debug map of the main executable have relative paths which require
+    // the lldb-vscode binary to have its working directory set to that relative
+    // root for the .o files in order to be able to load debug info.
+    if (!debuggerRoot.empty()) {
+      llvm::sys::fs::set_current_path(debuggerRoot.data());
+    }
+
+    SetSourceMapFromArguments(*arguments);
+
+    // Run any initialize LLDB commands the user specified in the launch.json
+    g_vsc.RunInitCommands();
+
+    // Grab the current working directory if there is one and set it in the
+    // launch info.
+    const auto cwd = GetString(arguments, "cwd");
+    if (!cwd.empty())
+      g_vsc.launch_info.SetWorkingDirectory(cwd.data());
+
+    // Grab the name of the program we need to debug and set it as the first
+    // argument that will be passed to the program we will debug.
+    llvm::StringRef program = GetString(arguments, "program");
+    llvm::StringRef remote_program = GetString(arguments, "remoteProgram");
+    llvm::StringRef triple = GetString(arguments, "triple");
+    llvm::StringRef platformStr = GetString(arguments, "platform");
+    const char *platform = platformStr.empty() ? nullptr : platformStr.data();
+
+    if (triple.empty()) {
+      response["success"] = llvm::json::Value(false);
+      const auto errorstr = std::string("Missing required triple field.");
+      EmplaceSafeString(response, "message", errorstr);
+      return;
+    }
+
+    // `target create /path/to/local/app` && `platform select remote-ios`
+    if (!program.empty() && !remote_program.empty()) {
+//      *g_vsc.log << "Setting target to: " << program.data() << std::endl;
+      g_vsc.target = g_vsc.debugger.CreateTarget(program.data(), triple.data(), platform, true, error);
+      if (!g_vsc.target.IsValid() || error.Fail()) {
+//        *g_vsc.log << "Setting target failed." << std::endl;
+        response["success"] = llvm::json::Value(false);
+        EmplaceSafeString(response, "message", std::string(error.GetCString()));
+      }
+//      *g_vsc.log << "Set target to: " << program.data() << "!" << std::endl;
+      //*g_vsc.log << "Executable dir is: " << g_vsc.target.GetExecutable().GetDirectory() << std::endl;
+      //*g_vsc.log << "Target Triple: " << g_vsc.target.GetTriple() << std::endl;
+
+      lldb::SBFileSpec remote_program_fspec(remote_program.data(), true /*resolve_path*/);
+
+      auto module = g_vsc.target.GetModuleAtIndex(0);
+      //      *g_vsc.log << "Setting module to: " << remote_program_fspec.GetDirectory() << remote_program_fspec.GetFilename() << std::endl;
+      module.SetPlatformFileSpec(remote_program_fspec);
+      //      *g_vsc.log << "Module triple is: " << module.GetTriple() << std::endl;
+      //      *g_vsc.log << "Local file spec is " << module.GetFileSpec().GetDirectory() << module.GetFileSpec().GetFilename() << std::endl;
+
+      if (!module.IsValid()) {
+        response["success"] = llvm::json::Value(false);
+
+        EmplaceSafeString(
+                          response, "message",
+                          llvm::formatv("Could not load program '{0}'.", remote_program).str());
+        g_vsc.SendJSON(llvm::json::Value(std::move(response)));
+        return;
+      }
+//      *g_vsc.log << "Set module." << std::endl;
+
+      g_vsc.launch_info.SetExecutableFile(remote_program_fspec,
+                                          true /*add_as_first_arg*/);
+    }
+
+    // `platform connect connect://localhost:57101`
+//    *g_vsc.log << "Connecting to remote debug server on address " << address.data() << std::endl;
+    auto listener = g_vsc.debugger.GetListener();
+    g_vsc.debugger.SetAsync(false);
+    auto process = g_vsc.target.ConnectRemote(listener, address.data(), nullptr, error);
+    g_vsc.debugger.SetAsync(true);
+    auto str = lldb::SBStream();
+    process.GetDescription(str);
+//    *g_vsc.log << str.GetData() << std::endl;
+    if (error.Fail()) {
+      response["success"] = llvm::json::Value(false);
+      const auto myerrorstr = "Remote Launch Failed: " + std::string(error.GetCString());
+      EmplaceSafeString(response, "message", myerrorstr);
+      g_vsc.SendJSON(llvm::json::Value(std::move(response)));
+      return;
+    } else {
+//      *g_vsc.log << "Succesfully connected to remote debug server!" << std::endl;
+      auto platform = g_vsc.target.GetPlatform();
+//      *g_vsc.log << platform.IsValid() << platform.IsConnected() << std::endl;
+      if (platform.IsConnected()) {
+//        *g_vsc.log << platform.GetTriple() << std::endl;
+//        *g_vsc.log << platform.GetOSDescription() << std::endl;
+      } else {
+        //*g_vsc.log << "Platform not connected." << std::endl;
+      }
+    }
+
+    // Extract any extra arguments and append them to our program arguments for
+    // when we launch
+    auto args = GetStrings(arguments, "args");
+    if (!args.empty())
+      g_vsc.launch_info.SetArguments(MakeArgv(args).data(), true);
+
+    // Pass any environment variables along that the user specified.
+    auto envs = GetStrings(arguments, "env");
+    if (!envs.empty())
+      g_vsc.launch_info.SetEnvironmentEntries(MakeArgv(envs).data(), true);
+
+    auto flags = g_vsc.launch_info.GetLaunchFlags();
+
+    if (GetBoolean(arguments, "disableASLR", true))
+      flags |= lldb::eLaunchFlagDisableASLR;
+    if (GetBoolean(arguments, "disableSTDIO", false))
+      flags |= lldb::eLaunchFlagDisableSTDIO;
+    if (GetBoolean(arguments, "shellExpandArguments", false))
+      flags |= lldb::eLaunchFlagShellExpandArguments;
+    if (g_vsc.stop_at_entry)
+      flags |= lldb::eLaunchFlagStopAtEntry;
+    const bool detatchOnError = GetBoolean(arguments, "detachOnError", false);
+    g_vsc.launch_info.SetDetachOnError(detatchOnError);
+    g_vsc.launch_info.SetLaunchFlags(flags | lldb::eLaunchFlagDebug);
+
+    // Run any pre run LLDB commands the user specified in the launch.json
+    g_vsc.RunPreRunCommands();
+
+    // Disable async events so the launch will be successful when we return from
+    // the launch call and the launch will happen synchronously
+    g_vsc.debugger.SetAsync(false);
+    g_vsc.target.SetLaunchInfo(g_vsc.launch_info);
+    auto state = process.GetState();
+    bool doRemoteLaunch = true;
+    if (state == lldb::eStateConnected) {
+      if (doRemoteLaunch) {
+//        *g_vsc.log << "Remote launching!" << std::endl;
+        if (process.RemoteLaunch(
+                                 MakeArgv(args).data(),
+                                 MakeArgv(envs).data(),
+                                 // Leave stdio as null so all output is redirected to lldb.
+                                 nullptr,nullptr,nullptr, // in,out,err
+                                 cwd.data(),
+                                 flags,
+                                 false,
+                                 error)) {
+          //            *g_vsc.log << "Remote launch succeeded." << std::endl;
+        } else {
+          //            *g_vsc.log << "Remote launch failed." << std::endl;
+        }
+      } else {
+        //        *g_vsc.log << "Remote launching with regular Launch()!" << std::endl;
+        g_vsc.target.Launch(g_vsc.launch_info, error);
+      }
+    } else {
+      //      *g_vsc.log << "Bad state :( " << state << std::endl;
+    }
+
+
+    if (error.Fail()) {
+//      *g_vsc.log << "Remote launch failed :(" << std::endl;
+      response["success"] = llvm::json::Value(false);
+      EmplaceSafeString(response, "message", std::string(error.GetCString()));
+    }
+//    *g_vsc.log << "Remote launched!" << std::endl;
     g_vsc.SendJSON(llvm::json::Value(std::move(response)));
 
     SendProcessEvent(Launch);
@@ -2592,6 +2782,7 @@ int main(int argc, char *argv[]) {
         printf("Listening on port %i...\n", portno);
         SOCKET socket_fd = AcceptConnection(portno);
         if (socket_fd >= 0) {
+          printf("Received connection from fd %d...\n", socket_fd);
           g_vsc.input.descriptor = StreamDescriptor::from_socket(socket_fd, true);
           g_vsc.output.descriptor =
           StreamDescriptor::from_socket(socket_fd, false);
