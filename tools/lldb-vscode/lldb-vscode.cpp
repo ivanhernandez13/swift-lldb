@@ -586,6 +586,106 @@ namespace {
     }
   }
 
+  //----------------------------------------------------------------------
+  // "CompletionsRequest": {
+  //   "allOf": [ { "$ref": "#/definitions/Request" }, {
+  //     "type": "object",
+  //     "description": "CompletionsRequest request; value of command field is 'completions'.\nReturns a list of possible completions for a given caret position and text.\nThe CompletionsRequest may only be called if the 'supportsCompletionsRequest' capability exists and is true.", "properties": {
+  //       "command": {
+  //         "type": "string",
+  //         "enum": [ "completions" ]
+  //       },
+  //       "arguments": {
+  //         "$ref": "#/definitions/CompletionsArguments"
+  //       }
+  //     },
+  //     "required": [ "command", "arguments" ]
+  //   }]
+  // },
+  // "CompletionsArguments": {
+  //   "type": "object",
+  //   "description": "Arguments for 'completions' request.",
+  //   "properties": {
+  //     "frameId": {
+  //       "type": "integer",
+  //       "description": "Returns completions in the scope of this stack frame. If not specified, the completions are returned for the global scope."
+  //     },
+  //     "text": {
+  //       "type": "string",
+  //       "description": "One or more source lines. Typically this is the text a user has typed into the debug console before he asked for completion."
+  //     },
+  //     "column": {
+  //       "type": "integer",
+  //       "description": "The character position for which to determine the completion proposals."
+  //     },
+  //     "line": {
+  //       "type": "integer",
+  //       "description": "An optional line for which to determine the completion proposals. If missing the first line of the text is assumed."
+  //     }
+  //   },
+  //   "required": [ "text", "column" ]
+  // },
+  // "CompletionsResponse": {
+  //   "allOf": [ { "$ref": "#/definitions/Response" }, {
+  //     "type": "object",
+  //     "description": "Response to 'completions' request.",
+  //     "properties": {
+  //       "body": {
+  //         "type": "object",
+  //         "properties": {
+  //           "targets": {
+  //             "type": "array",
+  //             "items": {
+  //               "$ref": "#/definitions/CompletionItem"
+  //             },
+  //             "description": "The possible completions for ."
+  //           }
+  //         },
+  //         "required": [ "targets" ]
+  //       }
+  //     },
+  //     "required": [ "body" ]
+  //   }]
+  // }
+  //----------------------------------------------------------------------
+  void request_completions(const llvm::json::Object &request) {
+    llvm::json::Object response;
+    FillResponse(request, response);
+    auto arguments = request.getObject("arguments");
+    llvm::json::Object body;
+    llvm::json::Array targets;
+    lldb::SBStringList matches = lldb::SBStringList();
+    lldb::SBCommandInterpreter interp = g_vsc.debugger.GetCommandInterpreter();
+
+    auto text = GetString(arguments, "text");
+    auto column = (uint32_t)GetUnsigned(arguments, "column", 0);
+    // TODO: Fix crash due to no matching closing quote.
+    auto count = interp.HandleCompletion(text.data(), column-1, 0, -1, matches);
+
+    if (g_vsc.log) {
+      *g_vsc.log << "-- START --\n" << "Found " << count << " matches for " << text.data() << " at column " << column << "\n-- END --\n" << std::endl;
+    }
+
+    for (auto i = 0; i < count; ++i) {
+      auto match = matches.GetStringAtIndex(i);
+
+      llvm::json::Object target;
+      target.try_emplace("label", std::move(match));
+      targets.emplace_back(llvm::json::Value(std::move(target)));
+    }
+
+    body.try_emplace("targets", std::move(targets));
+    response.try_emplace("body", std::move(body));
+
+    if (g_vsc.log) {
+      std::string s;
+      llvm::raw_string_ostream strm(s);
+      strm << response.get(llvm::StringRef("body"));
+    }
+
+    g_vsc.SendJSON(llvm::json::Value(std::move(response)));
+  }
+
   // "ContinueRequest": {
   //   "allOf": [ { "$ref": "#/definitions/Request" }, {
   //     "type": "object",
@@ -1119,7 +1219,7 @@ namespace {
     // The debug adapter supports the stepInTargetsRequest.
     body.try_emplace("supportsStepInTargetsRequest", false);
     // The debug adapter supports the completionsRequest.
-    body.try_emplace("supportsCompletionsRequest", false);
+    body.try_emplace("supportsCompletionsRequest", true);
     // The debug adapter supports the modules request.
     body.try_emplace("supportsModulesRequest", false);
     // The set of additional module information exposed by the debug adapter.
