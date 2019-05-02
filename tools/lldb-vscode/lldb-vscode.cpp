@@ -926,6 +926,7 @@ namespace {
     auto arguments = request.getObject("arguments");
     lldb::SBFrame frame = g_vsc.GetLLDBFrame(*arguments);
     const auto expression = GetString(arguments, "expression");
+    const auto context = GetString(arguments, "context");
 
     if (!expression.empty() && expression[0] == '`') {
       auto result = RunLLDBCommands(llvm::StringRef(),
@@ -938,20 +939,34 @@ namespace {
       // parser. "frame variable" is more reliable than the expression parser in
       // many cases and it is faster.
       lldb::SBValue value = frame.GetValueForVariablePath(
-                                                          expression.data(), lldb::eDynamicDontRunTarget);
-      if (value.GetError().Fail())
+          expression.data(), lldb::eDynamicDontRunTarget);
+
+      const bool contextIsRepl = context == "repl";
+
+      if (value.GetError().Fail() && contextIsRepl) {
+        auto result = RunLLDBCommands(llvm::StringRef(),
+                                      {expression});
+        EmplaceSafeString(body, "result", result);
+        body.try_emplace("variablesReference", (int64_t)0);
+      }
+
+      if (value.GetError().Fail() && !contextIsRepl) {
         value = frame.EvaluateExpression(expression.data());
-      if (value.GetError().Fail()) {
-        response["success"] = llvm::json::Value(false);
-        // This error object must live until we're done with the pointer returned
-        // by GetCString().
-        lldb::SBError error = value.GetError();
-        const char *error_cstr = error.GetCString();
-        if (error_cstr && error_cstr[0])
-          EmplaceSafeString(response, "message", std::string(error_cstr));
-        else
-          EmplaceSafeString(response, "message", "evaluate failed");
-      } else {
+
+        if (value.GetError().Fail()) {
+          response["success"] = llvm::json::Value(false);
+          // This error object must live until we're done with the pointer returned
+          // by GetCString().
+          lldb::SBError error = value.GetError();
+          const char *error_cstr = error.GetCString();
+          if (error_cstr && error_cstr[0])
+            EmplaceSafeString(response, "message", std::string(error_cstr));
+          else
+            EmplaceSafeString(response, "message", "evaluate failed");
+        }
+      }
+
+      if (value.GetError().Success()) {
         SetValueForKey(value, body, "result");
         auto value_typename = value.GetType().GetDisplayTypeName();
         EmplaceSafeString(body, "type", value_typename ? value_typename : NO_TYPENAME);
