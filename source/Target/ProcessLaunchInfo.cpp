@@ -298,12 +298,12 @@ void ProcessLaunchInfo::FinalizeFileActions(Target *target,
                       "pty to use for it",
                       __FUNCTION__);
 
-        int open_flags = O_RDWR | O_NOCTTY;
+        int open_flags = O_RDWR | O_NOCTTY; // Read+Write and No control terminal
 #if !defined(_WIN32)
         // We really shouldn't be specifying platform specific flags that are
         // intended for a system call in generic code.  But this will have to
         // do for now.
-        open_flags |= O_CLOEXEC;
+        open_flags |= O_CLOEXEC; // Close on exec?
 #endif
         if (m_pty->OpenFirstAvailableMaster(open_flags, nullptr, 0)) {
           const FileSpec slave_file_spec{m_pty->GetSlaveName(nullptr, 0),

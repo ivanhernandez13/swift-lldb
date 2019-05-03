@@ -70,6 +70,7 @@
 #include "lldb/Utility/Timer.h"
 
 #include "swift/SIL/SILModule.h"
+#include <spawn.h>
 
 using namespace lldb;
 using namespace lldb_private;
@@ -3585,6 +3586,76 @@ Status Target::Attach(ProcessAttachInfo &attach_info, Stream *stream) {
     }
   }
   return error;
+}
+
+void Target::RewireStdio() {
+  PseudoTerminal pty;
+  if (pty.OpenFirstAvailableMaster(O_RDWR | O_NOCTTY | O_CLOEXEC, nullptr, 0)) {
+    FileSpec slave_name{pty.GetSlaveName(nullptr, 0), false};
+
+    FileAction file_action;
+    file_action.Open(STDOUT_FILENO, slave_name, true, false);
+    Status error;
+    posix_spawn_file_actions_t file_actions;
+    error.SetError(::posix_spawn_file_actions_init(&file_actions),
+                   eErrorTypePOSIX);
+
+    if (file_action.GetFD() == -1) {
+      error.SetErrorString(
+                           "invalid fd in Target::RewireSTDIO(...)");
+    } else {
+      int oflag = file_action.GetActionArgument();
+
+      mode_t mode = 0;
+
+      if (oflag & O_CREAT)
+        mode = 0640;
+
+      error.SetError(::posix_spawn_file_actions_addopen(
+                                                        &file_actions, file_action.GetFD(),
+                                                        file_action.GetPath().str().c_str(), oflag, mode),
+                     eErrorTypePOSIX);
+    }
+
+
+    int slave_fd = pty.GetSlaveFileDescriptor();
+    if (slave_fd == PseudoTerminal::invalid_fd)
+      slave_fd = pty.OpenSlave(O_RDWR, nullptr, 0);
+    if (slave_fd == PseudoTerminal::invalid_fd) {
+      printf("Opening slave failed\n\n");
+      exit(9000);
+    }
+
+    ProcessSP process_sp = GetProcessSP();
+    if (!process_sp) {
+      printf("Not atatched.\n\n");
+      exit(9001);
+    }
+
+      std::string path = slave_name.GetPath();
+      printf("Filepath %s for slave descriptor %i.\n", path.c_str(), pty.GetSlaveFileDescriptor());
+      SetStandardInputPath(path);
+      SetStandardOutputPath(path);
+      SetStandardErrorPath(path);
+
+    //  char filePath[PATH_MAX];
+    //  if (fcntl(pty_fd, F_GETPATH, filePath) != -1) {
+    //    std::string file = std::string(filePath);
+    //    TargetProperties::SetStandardOutputPath(file);
+    //  } else {
+    //    printf("Setting master stdout failed");
+    //  }
+
+    int pty_fd = pty.ReleaseMasterFileDescriptor();
+    printf("Master fd is %i\n", pty_fd);
+    if (pty_fd != PseudoTerminal::invalid_fd) {
+      process_sp->SetSTDIOFileDescriptor(pty_fd);
+    } else {
+      printf("Setting stdio failed\n\n");
+      exit(9002);
+    }
+  }
+
 }
 
 //--------------------------------------------------------------

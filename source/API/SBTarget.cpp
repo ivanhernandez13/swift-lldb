@@ -462,6 +462,11 @@ lldb::SBProcess SBTarget::Attach(SBAttachInfo &sb_attach_info, SBError &error) {
   return sb_process;
 }
 
+void SBTarget::RewireStdio() {
+  TargetSP target_sp(GetSP());
+  target_sp->RewireStdio();
+}
+
 lldb::SBProcess SBTarget::AttachToProcessWithID(
     SBListener &listener,
     lldb::pid_t pid, // The process ID to attach to

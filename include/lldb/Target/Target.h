@@ -586,7 +586,9 @@ public:
                 Stream *stream); // Optional stream to receive first stop info
 
   Status Attach(ProcessAttachInfo &attach_info,
-                Stream *stream); // Optional stream to receive first stop info
+                Stream *stream); // Optional stream to receive first stop
+
+  void RewireStdio();
 
   //------------------------------------------------------------------
   // This part handles the breakpoints.

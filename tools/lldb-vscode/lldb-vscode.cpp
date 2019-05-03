@@ -14,6 +14,8 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/syslimits.h>
+#include <fcntl.h>
 #if defined(_WIN32)
 // We need to #define NOMINMAX in order to skip `min()` and `max()` macro
 // definitions that conflict with other system headers.
@@ -552,6 +554,44 @@ namespace {
       g_vsc.target.Attach(g_vsc.attach_info, error);
       // Reenable async events
       g_vsc.debugger.SetAsync(true);
+
+      #pragma mark Rewire STDIO
+      /* Start rewire stdio commands */
+
+
+      const bool useApi = true;
+      if (useApi) {
+        std::vector<std::string> cmds{
+          "call (int)close(1)",
+          "call (int)close(2)"
+        };
+//          g_vsc.RunLLDBCommands("Closing stdout/stderr with rewireStdioCommands", cmds);
+        g_vsc.target.RewireStdio();
+      } else {
+        auto fd = g_vsc.debugger.GetInputFileHandle()->_file;
+        char filePath[PATH_MAX];
+        if (fcntl(fd, F_GETPATH, filePath) != -1) {
+          printf("Filepath %s for descriptor %i.\n", filePath, fd);
+
+          auto openCmd = "call (int) open(\"" + std::string(filePath) + "\", 2, 0)";
+
+          std::vector<std::string> cmds{
+            "call (int)close(1)",
+            "call (int)close(2)",
+            openCmd,
+            openCmd
+          };
+
+          g_vsc.RunLLDBCommands("Closing/Repening stdout/stderr with rewireStdioCommands", cmds);
+        } else {
+          printf("No filepath for descriptor %i.\n", fd);
+        }
+      }
+
+
+
+
+      /* End rewire stdio commands */
     } else {
       // We have "attachCommands" that are a set of commands that are expected
       // to execute the commands after which a process should be created. If there
@@ -2592,6 +2632,7 @@ int main(int argc, char *argv[]) {
         printf("Listening on port %i...\n", portno);
         SOCKET socket_fd = AcceptConnection(portno);
         if (socket_fd >= 0) {
+          printf("Accepting connection from fd %i...\n", socket_fd);
           g_vsc.input.descriptor = StreamDescriptor::from_socket(socket_fd, true);
           g_vsc.output.descriptor =
           StreamDescriptor::from_socket(socket_fd, false);

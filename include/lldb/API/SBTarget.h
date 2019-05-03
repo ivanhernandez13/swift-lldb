@@ -225,6 +225,8 @@ public:
 
   SBProcess Attach(SBAttachInfo &attach_info, SBError &error);
 
+  void RewireStdio();
+
   //------------------------------------------------------------------
   /// Attach to process with pid.
   ///
