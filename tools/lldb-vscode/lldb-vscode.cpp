@@ -659,7 +659,6 @@ namespace {
 
     auto text = GetString(arguments, "text");
     auto column = (uint32_t)GetUnsigned(arguments, "column", 0);
-    // TODO: Fix crash due to no matching closing quote.
     auto count = interp.HandleCompletion(text.data(), column-1, 0, -1, matches);
 
     if (g_vsc.log) {
@@ -2852,6 +2851,7 @@ namespace {
       REQUEST_CALLBACK(continue),
       REQUEST_CALLBACK(configurationDone),
       REQUEST_CALLBACK(disconnect),
+      REQUEST_CALLBACK(completions),
       REQUEST_CALLBACK(evaluate),
       REQUEST_CALLBACK(exceptionInfo),
       REQUEST_CALLBACK(initialize),
@@ -2897,7 +2897,7 @@ int main(int argc, char *argv[]) {
         printf("Listening on port %i...\n", portno);
         SOCKET socket_fd = AcceptConnection(portno);
         if (socket_fd >= 0) {
-          printf("Received connection from fd %d...\n", socket_fd);
+          printf("Accepting connection from fd %i...\n", socket_fd);
           g_vsc.input.descriptor = StreamDescriptor::from_socket(socket_fd, true);
           g_vsc.output.descriptor =
           StreamDescriptor::from_socket(socket_fd, false);
