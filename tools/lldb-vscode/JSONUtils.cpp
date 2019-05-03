@@ -133,21 +133,78 @@ void SetValueForKey(lldb::SBValue &v, llvm::json::Object &object,
   llvm::StringRef value = v.GetValue();
   llvm::StringRef summary = v.GetSummary();
   llvm::StringRef type_name = v.GetType().GetDisplayTypeName();
+  lldb::TypeClass type_class = v.GetType().GetTypeClass();
 
   std::string result;
   llvm::raw_string_ostream strm(result);
-  if (!value.empty()) {
-    strm << value;
-    if (!summary.empty())
-      strm << ' ' << summary;
-  } else if (!summary.empty()) {
-    strm << ' ' << summary;
-  } else if (!type_name.empty()) {
-    strm << type_name;
-    lldb::addr_t address = v.GetLoadAddress();
-    if (address != LLDB_INVALID_ADDRESS)
-      strm << " @ " << llvm::format_hex(address, 0);
+
+  switch (type_class) {
+    case lldb::eTypeClassObjCObjectPointer:
+      {
+        if (!type_name.empty()) {
+          strm << "(" << type_name << ")";
+        }
+
+        if (v.GetValueAsUnsigned() == 0) {
+          strm << ' ' << "nil";
+        } else {
+          lldb::addr_t address = v.GetLoadAddress();
+          if (!summary.empty()) {
+            strm << ' ' << summary;
+          } else if (address != LLDB_INVALID_ADDRESS) {
+            strm << ' ' << llvm::format_hex(address, 0);
+          } else if (!value.empty()) {
+            strm << ' ' << value;
+          }
+        }
+      }
+      break;
+
+    case lldb::eTypeClassObjCObject:
+      {
+        if (!summary.empty()) {
+          strm << ' ' << summary;
+        }
+      }
+      break;
+
+    case lldb::eTypeClassObjCInterface:
+      // Interfaces have no interesting values, leave empty on purpose.
+      break;
+
+    case lldb::eTypeClassTypedef:
+      {
+        if (!type_name.empty()) {
+          strm << "(" << type_name << ")";
+        }
+        if (!summary.empty()) {
+          strm << ' ' << summary;
+        } else if (!value.empty()) {
+          strm << ' ' << value;
+        } else if (v.GetValueAsUnsigned() == 0) {
+          strm << ' ' << "0x0";
+        }
+      }
+      break;
+
+    default:
+      {
+        if (!value.empty()) {
+          strm << value;
+          if (!summary.empty())
+            strm << ' ' << summary;
+        } else if (!summary.empty()) {
+          strm << ' ' << summary;
+        } else if (!type_name.empty()) {
+          strm << type_name;
+          lldb::addr_t address = v.GetLoadAddress();
+          if (address != LLDB_INVALID_ADDRESS)
+            strm << " @ " << llvm::format_hex(address, 0);
+        }
+      }
+      break;
   }
+
   strm.flush();
   EmplaceSafeString(object, key, result);
 }
