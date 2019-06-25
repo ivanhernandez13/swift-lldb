@@ -178,10 +178,24 @@ void SetValueForKey(lldb::SBValue &v, llvm::json::Object &object,
         }
         if (!summary.empty()) {
           strm << ' ' << summary;
-        } else if (!value.empty()) {
-          strm << ' ' << value;
         } else if (v.GetValueAsUnsigned() == 0) {
           strm << ' ' << "0x0";
+        } else if (!value.empty()) {
+          strm << ' ' << value;
+        }
+      }
+      break;
+      
+    case lldb::eTypeClassClass:
+    case lldb::eTypeClassStruct:
+      {
+        if (!type_name.empty()) {
+          strm << "(" << type_name << ")";
+        }
+        if (!summary.empty()) {
+          strm << ' ' << summary;
+        } else if (!value.empty()) {
+          strm << ' ' << value;
         }
       }
       break;
