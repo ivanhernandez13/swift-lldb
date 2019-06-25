@@ -926,31 +926,44 @@ void request_evaluate(const llvm::json::Object &request) {
   auto arguments = request.getObject("arguments");
   lldb::SBFrame frame = g_vsc.GetLLDBFrame(*arguments);
   const auto expression = GetString(arguments, "expression");
+  const auto context = GetString(arguments, "context");
 
   if (!expression.empty() && expression[0] == '`') {
     auto result = RunLLDBCommands(llvm::StringRef(),
-                                     {expression.substr(1)});
+                                  {expression.substr(1)});
     EmplaceSafeString(body, "result", result);
     body.try_emplace("variablesReference", (int64_t)0);
   } else {
     // Always try to get the answer from the local variables if possible. If
     // this fails, then actually evaluate an expression using the expression
     // parser. "frame variable" is more reliable than the expression parser in
-    // many cases and it is faster.
+    // many cases and it is faster. Run the expression as an LLDB command as a
+    // last resort when in REPL context.
     lldb::SBValue value = frame.GetValueForVariablePath(
         expression.data(), lldb::eDynamicDontRunTarget);
     if (value.GetError().Fail())
       value = frame.EvaluateExpression(expression.data());
     if (value.GetError().Fail()) {
-      response["success"] = llvm::json::Value(false);
-      // This error object must live until we're done with the pointer returned
-      // by GetCString().
-      lldb::SBError error = value.GetError();
-      const char *error_cstr = error.GetCString();
-      if (error_cstr && error_cstr[0])
-        EmplaceSafeString(response, "message", std::string(error_cstr));
-      else
-        EmplaceSafeString(response, "message", "evaluate failed");
+            // Evaluate the expression as an LLDB command when the expression was
+            // received from the REPL console.
+            if (context == "repl") {
+              if (value.GetError().Fail()) {
+                auto result = RunLLDBCommands(llvm::StringRef(),
+                                              {expression});
+                EmplaceSafeString(body, "result", result);
+                body.try_emplace("variablesReference", (int64_t)0);
+              }
+            } else {
+              response["success"] = llvm::json::Value(false);
+              // This error object must live until we're done with the pointer
+              // returned by GetCString().
+              lldb::SBError error = value.GetError();
+              const char *error_cstr = error.GetCString();
+              if (error_cstr && error_cstr[0])
+                EmplaceSafeString(response, "message", std::string(error_cstr));
+              else
+                EmplaceSafeString(response, "message", "evaluate failed");
+            }
     } else {
       SetValueForKey(value, body, "result");
       auto value_typename = value.GetType().GetDisplayTypeName();

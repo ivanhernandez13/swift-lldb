@@ -195,6 +195,18 @@ class TestVSCode_variables(lldbvscode_testcase.VSCodeTestCaseBase):
         for expression in expressions:
             response = self.vscode.request_evaluate(expression)
             self.verify_values(expressions[expression], response['body'])
+            # Verify REPL context still returns variables when available.
+            response = self.vscode.request_evaluate(expression, context='repl')
+            self.verify_values(expressions[expression], response['body'])
+
+        # Test REPL commands with evaluate
+        replCommands = ['target list', 'image list', 'bt']
+        for command in replCommands:
+            response = self.vscode.request_evaluate(command, context='repl');
+            body = response['body']
+            self.assertTrue('result' in body,
+                            '"%s" doesn\'t return a result' % (command))
+            self.verify_commands('replCommands', body['result'], [command])
 
         # Test setting variables
         self.set_local('argc', 123)
