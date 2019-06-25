@@ -2592,6 +2592,7 @@ int main(int argc, char *argv[]) {
       printf("Listening on port %i...\n", portno);
       SOCKET socket_fd = AcceptConnection(portno);
       if (socket_fd >= 0) {
+        printf("Received request from fd %i.\n", socket_fd);
         g_vsc.input.descriptor = StreamDescriptor::from_socket(socket_fd, true);
         g_vsc.output.descriptor =
             StreamDescriptor::from_socket(socket_fd, false);
@@ -2610,6 +2611,7 @@ int main(int argc, char *argv[]) {
     std::string json = g_vsc.ReadJSON();
     if (json.empty())
       break;
+    if (g_vsc.log) *g_vsc.log << "--> " << std::endl << json << std::endl;
 
     llvm::StringRef json_sref(json);
     llvm::Expected<llvm::json::Value> json_value = llvm::json::parse(json_sref);
