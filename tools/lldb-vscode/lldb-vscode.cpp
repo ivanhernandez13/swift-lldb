@@ -1284,6 +1284,8 @@ void request_initialize(const llvm::json::Object &request) {
 //                     acknowledgement, so no body field is required."
 //   }]
 // }
+void prepForRemoteLaunch(const llvm::json::Object &arguments, lldb::SBError error);
+void performRemoteLaunch(const char **args, const char **envs, lldb::SBError error);
 void request_launch(const llvm::json::Object &request) {
   llvm::json::Object response;
   lldb::SBError error;
@@ -1295,7 +1297,8 @@ void request_launch(const llvm::json::Object &request) {
   g_vsc.exit_commands = GetStrings(arguments, "exitCommands");
   g_vsc.stop_at_entry = GetBoolean(arguments, "stopOnEntry", false);
   const auto debuggerRoot = GetString(arguments, "debuggerRoot");
-
+  const bool programIsLocal = GetString(arguments, "remoteProgram").empty();
+  
   // This is a hack for loading DWARF in .o files on Mac where the .o files
   // in the debug map of the main executable have relative paths which require
   // the lldb-vscode binary to have its working directory set to that relative
@@ -1303,22 +1306,22 @@ void request_launch(const llvm::json::Object &request) {
   if (!debuggerRoot.empty()) {
     llvm::sys::fs::set_current_path(debuggerRoot.data());
   }
-
+  
   SetSourceMapFromArguments(*arguments);
-
+  
   // Run any initialize LLDB commands the user specified in the launch.json
   g_vsc.RunInitCommands();
-
+  
   // Grab the current working directory if there is one and set it in the
   // launch info.
   const auto cwd = GetString(arguments, "cwd");
   if (!cwd.empty())
     g_vsc.launch_info.SetWorkingDirectory(cwd.data());
-
+  
   // Grab the name of the program we need to debug and set it as the first
   // argument that will be passed to the program we will debug.
   llvm::StringRef program = GetString(arguments, "program");
-  if (!program.empty()) {
+  if (programIsLocal && !program.empty()) {
     lldb::SBFileSpec program_fspec(program.data(), true /*resolve_path*/);
     g_vsc.launch_info.SetExecutableFile(program_fspec,
                                         true /*add_as_first_arg*/);
@@ -1327,59 +1330,132 @@ void request_launch(const llvm::json::Object &request) {
     // Stand alone debug info file if different from executable
     const char *symfile = nullptr;
     lldb::SBModule module = g_vsc.target.AddModule(
-        program.data(), target_triple, uuid_cstr, symfile);
+                                                   program.data(), target_triple, uuid_cstr, symfile);
     if (!module.IsValid()) {
       response["success"] = llvm::json::Value(false);
 
       EmplaceSafeString(
-          response, "message",
-          llvm::formatv("Could not load program '{0}'.", program).str());
+                        response, "message",
+                        llvm::formatv("Could not load program '{0}'.", program).str());
+      g_vsc.SendJSON(llvm::json::Value(std::move(response)));
+      return;
+    }
+  } else if (!programIsLocal) {
+    prepForRemoteLaunch(*arguments, error);
+    if (error.Fail()) {
+      response["success"] = llvm::json::Value(false);
+      EmplaceSafeString(response, "message", std::string(error.GetCString()));
       g_vsc.SendJSON(llvm::json::Value(std::move(response)));
       return;
     }
   }
-
+  
   // Extract any extra arguments and append them to our program arguments for
   // when we launch
   auto args = GetStrings(arguments, "args");
   if (!args.empty())
     g_vsc.launch_info.SetArguments(MakeArgv(args).data(), true);
-
+  
   // Pass any environment variables along that the user specified.
   auto envs = GetStrings(arguments, "env");
   if (!envs.empty())
     g_vsc.launch_info.SetEnvironmentEntries(MakeArgv(envs).data(), true);
-
+  
   auto flags = g_vsc.launch_info.GetLaunchFlags();
-
+  
   if (GetBoolean(arguments, "disableASLR", true))
     flags |= lldb::eLaunchFlagDisableASLR;
   if (GetBoolean(arguments, "disableSTDIO", false))
     flags |= lldb::eLaunchFlagDisableSTDIO;
   if (GetBoolean(arguments, "shellExpandArguments", false))
     flags |= lldb::eLaunchFlagShellExpandArguments;
+  if (g_vsc.stop_at_entry)
+    flags |= lldb::eLaunchFlagStopAtEntry;
   const bool detatchOnError = GetBoolean(arguments, "detachOnError", false);
   g_vsc.launch_info.SetDetachOnError(detatchOnError);
-  g_vsc.launch_info.SetLaunchFlags(flags | lldb::eLaunchFlagDebug |
-                                   lldb::eLaunchFlagStopAtEntry);
-
+  g_vsc.launch_info.SetLaunchFlags(flags | lldb::eLaunchFlagDebug);
+  
   // Run any pre run LLDB commands the user specified in the launch.json
   g_vsc.RunPreRunCommands();
-
+  
   // Disable async events so the launch will be successful when we return from
   // the launch call and the launch will happen synchronously
   g_vsc.debugger.SetAsync(false);
-  g_vsc.target.Launch(g_vsc.launch_info, error);
+  if (programIsLocal) {
+    g_vsc.target.Launch(g_vsc.launch_info, error);
+  } else {
+    performRemoteLaunch(MakeArgv(args).data(), MakeArgv(envs).data(), error);
+  }
   if (error.Fail()) {
     response["success"] = llvm::json::Value(false);
     EmplaceSafeString(response, "message", std::string(error.GetCString()));
   }
   g_vsc.SendJSON(llvm::json::Value(std::move(response)));
-
+  
   SendProcessEvent(Launch);
   g_vsc.SendJSON(llvm::json::Value(CreateEventObject("initialized")));
   // Reenable async events and start the event thread to catch async events.
   g_vsc.debugger.SetAsync(true);
+}
+
+// Sets fields to the proper remote/local values and makes a connection to a remote debugserver.
+void prepForRemoteLaunch(const llvm::json::Object &arguments, lldb::SBError error) {
+  llvm::StringRef program = GetString(arguments, "program");
+  llvm::StringRef remote_program = GetString(arguments, "remoteProgram");
+  llvm::StringRef triple = GetString(arguments, "triple");
+  llvm::StringRef platform = GetString(arguments, "platform");
+  const auto address = GetString(arguments, "address");
+
+  if (triple.empty()) {
+    error.SetErrorString("Missing required triple field.");
+    return;
+  }
+
+  // Create the local target with the local program and set the remote program.
+  if (!program.empty() && !remote_program.empty()) {
+    g_vsc.target =
+      g_vsc.debugger.CreateTarget(program.data(), triple.data(), platform.data(), true, error);
+    if (error.Fail()) return;
+
+    lldb::SBFileSpec remote_program_fspec(remote_program.data(), true /*resolve_path*/);
+    auto module = g_vsc.target.GetModuleAtIndex(0);
+    module.SetPlatformFileSpec(remote_program_fspec);
+    if (!module.IsValid()) {
+      const char *error_message =
+        llvm::formatv("Could not load program '{0}'.", remote_program).str().c_str();
+      error.SetErrorString(error_message);
+      return;
+    }
+
+    g_vsc.launch_info.SetExecutableFile(remote_program_fspec,
+                                        true /*add_as_first_arg*/);
+  }
+
+  // Connect to the debugserver running on the remote device.
+  auto listener = g_vsc.debugger.GetListener();
+  g_vsc.debugger.SetAsync(false);
+  auto process = g_vsc.target.ConnectRemote(listener, address.data(), nullptr, error);
+  g_vsc.debugger.SetAsync(true);
+
+}
+
+// This is an alternate method to performing a remote launch, but there seems to be no benefit to
+// using SBProcess.RemoteLaunch() vs SBTarget.Launch() as long as the proper fields and connections
+// are set.
+void performRemoteLaunch(const char **args, const char **envs, lldb::SBError error) {
+  g_vsc.target.SetLaunchInfo(g_vsc.launch_info);
+  auto process = g_vsc.target.GetProcess();
+  auto cwd = g_vsc.launch_info.GetWorkingDirectory();
+  auto flags = g_vsc.launch_info.GetLaunchFlags();
+
+  process.RemoteLaunch(args,
+                       envs,
+                       // Leave stdio as null so all output is redirected to lldb.
+                       nullptr,nullptr,nullptr, // in,out,err
+                       cwd,
+                       flags,
+                       false,
+                       error);
 }
 
 // "NextRequest": {
