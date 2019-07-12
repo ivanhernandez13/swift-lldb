@@ -96,17 +96,18 @@ struct VSCode {
   ~VSCode();
   VSCode(const VSCode &rhs) = delete;
   void operator=(const VSCode &rhs) = delete;
+  void reset();
   int64_t GetLineForPC(int64_t sourceReference, lldb::addr_t pc) const;
   ExceptionBreakpoint *GetExceptionBreakpoint(const std::string &filter);
   ExceptionBreakpoint *GetExceptionBreakpoint(const lldb::break_id_t bp_id);
   // Send the JSON in "json_str" to the "out" stream. Correctly send the
   // "Content-Length:" field followed by the length, followed by the raw
   // JSON bytes.
-  void SendJSON(const std::string &json_str);
+  void SendJSON(const std::string &json_str, const bool skip_log = false);
 
   // Serialize the JSON value into a string and send the JSON packet to
   // the "out" stream.
-  void SendJSON(const llvm::json::Value &json);
+  void SendJSON(const llvm::json::Value &json, const bool skip_log = false);
 
   std::string ReadJSON();
 

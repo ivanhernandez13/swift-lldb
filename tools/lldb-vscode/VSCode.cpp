@@ -81,28 +81,35 @@ VSCode::GetExceptionBreakpoint(const lldb::break_id_t bp_id) {
 // Send the JSON in "json_str" to the "out" stream. Correctly send the
 // "Content-Length:" field followed by the length, followed by the raw
 // JSON bytes.
-void VSCode::SendJSON(const std::string &json_str) {
+void VSCode::SendJSON(const std::string &json_str, const bool skip_log) {
   output.write_full("Content-Length: ");
   output.write_full(llvm::utostr(json_str.size()));
   output.write_full("\r\n\r\n");
   output.write_full(json_str);
 
-  if (log) {
+  if (log && !skip_log) {
+    const int TRIM_LENGTH = 5000;
+    std::string content = json_str;
+    if (json_str.size() > TRIM_LENGTH) {
+      const int ommited_characters = json_str.size() - TRIM_LENGTH;
+      const std::string postfix = "... (Ommited " + std::to_string(ommited_characters) + " characters)";
+      content = json_str.substr(0, TRIM_LENGTH) + postfix;
+    }
     *log << "<-- " << std::endl
          << "Content-Length: " << json_str.size() << "\r\n\r\n"
-         << json_str << std::endl;
+         << content << std::endl;
   }
 }
 
 // Serialize the JSON value into a string and send the JSON packet to
 // the "out" stream.
-void VSCode::SendJSON(const llvm::json::Value &json) {
+void VSCode::SendJSON(const llvm::json::Value &json, const bool skip_log) {
   std::string s;
   llvm::raw_string_ostream strm(s);
   strm << json;
   static std::mutex mutex;
   std::lock_guard<std::mutex> locker(mutex);
-  SendJSON(strm.str());
+  SendJSON(strm.str(), skip_log);
 }
 
 // Read a JSON packet from the "in" stream.
@@ -196,15 +203,18 @@ void VSCode::SendOutput(OutputType o, const llvm::StringRef output) {
   llvm::json::Object event(CreateEventObject("output"));
   llvm::json::Object body;
   const char *category = nullptr;
+  bool skip_log = false;
   switch (o) {
   case OutputType::Console:
     category = "console";
     break;
   case OutputType::Stdout:
     category = "stdout";
+    skip_log = true;
     break;
   case OutputType::Stderr:
     category = "stderr";
+    skip_log = true;
     break;
   case OutputType::Telemetry:
     category = "telemetry";
@@ -213,7 +223,7 @@ void VSCode::SendOutput(OutputType o, const llvm::StringRef output) {
   body.try_emplace("category", category);
   EmplaceSafeString(body, "output", output.str());
   event.try_emplace("body", std::move(body));
-  SendJSON(llvm::json::Value(std::move(event)));
+  SendJSON(llvm::json::Value(std::move(event)), skip_log);
 }
 
 void __attribute__((format(printf, 3, 4)))
