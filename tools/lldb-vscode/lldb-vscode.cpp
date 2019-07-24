@@ -69,7 +69,7 @@ enum LaunchMethod { Launch, Attach, AttachForSuspendedLaunch };
 
 enum VSCodeBroadcasterBits { eBroadcastBitStopEventThread = 1u << 0 };
 
-SOCKET AcceptConnection(int portno) {
+SOCKET AcceptConnection(int *portno) {
   // Accept a socket connection from any host on "portno".
   SOCKET newsockfd = -1;
   struct sockaddr_in serv_addr, cli_addr;
@@ -83,13 +83,21 @@ SOCKET AcceptConnection(int portno) {
     serv_addr.sin_family = AF_INET;
     // serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     serv_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    serv_addr.sin_port = htons(portno);
-    if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+    serv_addr.sin_port = htons(*portno);
+    socklen_t servlen = sizeof(serv_addr);
+    if (bind(sockfd, (struct sockaddr *)&serv_addr, servlen) < 0) {
       if (g_vsc.log)
         *g_vsc.log << "error: binding socket (" << strerror(errno) << ")"
                    << std::endl;
     } else {
       listen(sockfd, 5);
+      if (getsockname(sockfd, (struct sockaddr *)&serv_addr, &servlen) < 0) {
+        // err
+        return -1;
+      }
+      *portno = ntohs(serv_addr.sin_port);
+      printf("Listening on port %i...\n", *portno);
+      fflush(stdout);
       socklen_t clilen = sizeof(cli_addr);
       newsockfd = llvm::sys::RetryAfterSignal(-1, accept,
           sockfd, (struct sockaddr *)&cli_addr, &clilen);
@@ -104,6 +112,8 @@ SOCKET AcceptConnection(int portno) {
     close(sockfd);
 #endif
   }
+  printf("SERV PORT: %d\n", ntohs(serv_addr.sin_port));
+  printf("CLI PORT: %d\n", ntohs(cli_addr.sin_port));
   return newsockfd;
 }
 
@@ -820,7 +830,7 @@ void request_configurationDone(const llvm::json::Object &request) {
 //     "terminateDebuggee": {
 //       "type": "boolean",
 //       "description": "Indicates whether the debuggee should be terminated
-//                       when the debugger is disconnected. If unspecified,
+//                       when the debugger is dis_connected. If unspecified,
 //                       the debug adapter is free to do whatever it thinks
 //                       is best. A client can only rely on this attribute
 //                       being properly honored if a debug adapter returns
@@ -845,7 +855,7 @@ void request_disconnect(const llvm::json::Object &request) {
   FillResponse(request, response);
   auto arguments = request.getObject("arguments");
 
-  bool terminateDebuggee = GetBoolean(arguments, "terminateDebuggee", false);
+  bool terminateDebuggee = GetBoolean(arguments, "terminateDebuggee", true);
   lldb::SBProcess process = g_vsc.target.GetProcess();
   auto state = process.GetState();
 
@@ -2768,36 +2778,43 @@ int main(int argc, char *argv[]) {
   // Initialize LLDB first before we do anything.
   lldb::SBDebugger::Initialize();
 
-  if (argc == 2) {
-    const char *arg = argv[1];
-#if !defined(_WIN32)
-    if (strcmp(arg, "-g") == 0) {
-      printf("Paused waiting for debugger to attach (pid = %i)...\n", getpid());
-      pause();
-    } else {
-#else
-    {
-#endif
-      int portno = atoi(arg);
-      printf("Listening on port %i...\n", portno);
-      SOCKET socket_fd = AcceptConnection(portno);
-      if (socket_fd >= 0) {
-        printf("Received request from fd %i.\n", socket_fd);
-        g_vsc.input.descriptor = StreamDescriptor::from_socket(socket_fd, true);
-        g_vsc.output.descriptor =
-            StreamDescriptor::from_socket(socket_fd, false);
-      } else {
-        exit(1);
-      }
-    }
-  } else {
-    g_vsc.input.descriptor = StreamDescriptor::from_file(fileno(stdin), false);
-    g_vsc.output.descriptor =
-        StreamDescriptor::from_file(fileno(stdout), false);
-  }
+  bool is_connected = false;
+  // Whether to continously listen for requests using a dynamic port for each session.
+  bool dynamic_mode = false;
+
   auto request_handlers = GetRequestHandlers();
   uint32_t packet_idx = 0;
   while (true) {
+    if (!is_connected) {
+      if (argc == 2) {
+        const char *arg = argv[1];
+        dynamic_mode = strcmp(arg, "-d") == 0;
+#if !defined(_WIN32)
+        if (strcmp(arg, "-g") == 0) {
+          printf("Paused waiting for debugger to attach (pid = %i)...\n", getpid());
+          pause();
+        } else {
+#else
+          {
+#endif
+          // Setting the port to 0 will cause the socket to bind the any available port.
+          int portno = dynamic_mode ? 0 : atoi(argv[1]);
+          SOCKET socket_fd = -1;
+          do {
+            socket_fd = AcceptConnection(&portno);
+            printf("Received request from fd %i.\n", socket_fd);
+            fflush(stdout);
+          } while (socket_fd < 0);
+          is_connected = true;
+          g_vsc.input.descriptor = StreamDescriptor::from_socket(socket_fd, true);
+          g_vsc.output.descriptor = StreamDescriptor::from_socket(socket_fd, false);
+        }
+      } else {
+        g_vsc.input.descriptor = StreamDescriptor::from_file(fileno(stdin), false);
+        g_vsc.output.descriptor = StreamDescriptor::from_file(fileno(stdout), false);
+      }
+    }
+
     std::string json = g_vsc.ReadJSON();
     if (json.empty())
       break;
@@ -2832,6 +2849,11 @@ int main(int argc, char *argv[]) {
       auto handler_pos = request_handlers.find(command);
       if (handler_pos != request_handlers.end()) {
         handler_pos->second(*object);
+        if (command == "disconnect") {
+          if (!dynamic_mode) break;
+          is_connected = false;
+          g_vsc.reset();
+        }
       } else {
         if (g_vsc.log)
           *g_vsc.log << "error: unhandled command \"" << command.data() << std::endl;

@@ -54,6 +54,25 @@ VSCode::VSCode()
 VSCode::~VSCode() {
 }
 
+void VSCode::reset() {
+  variables.Clear();
+  num_regs = 0;
+  num_locals = 0;
+  num_globals = 0;
+  addr_to_source_ref.shrink_and_clear();
+  source_breakpoints.clear();
+  function_breakpoints.clear();
+  init_commands.clear();
+  pre_run_commands.clear();
+  exit_commands.clear();
+  stop_commands.clear();
+  focus_tid = LLDB_INVALID_THREAD_ID;
+  sent_terminated_event = false;
+  stop_at_entry = false;
+  thread_ids.clear();
+}
+
+
 int64_t VSCode::GetLineForPC(int64_t sourceReference, lldb::addr_t pc) const {
   auto pos = source_map.find(sourceReference);
   if (pos != source_map.end())
