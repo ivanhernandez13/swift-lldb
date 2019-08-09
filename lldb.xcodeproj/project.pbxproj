@@ -735,6 +735,17 @@
 		464CB93D2278D774004025E5 /* VSCode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4661C7242274FAD800F38F5D /* VSCode.cpp */; };
 		464CB93E2278D774004025E5 /* IOStream.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4661C7262274FAD800F38F5D /* IOStream.cpp */; };
 		464CB93F2278D774004025E5 /* lldb-vscode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4661C7292274FAD800F38F5D /* lldb-vscode.cpp */; };
+		46B51E5F22FDF48C00D3DAC2 /* ExceptionBreakpoint.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4661C71D2274FAD800F38F5D /* ExceptionBreakpoint.cpp */; };
+		46B51E6022FDF48C00D3DAC2 /* SourceBreakpoint.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4661C71F2274FAD800F38F5D /* SourceBreakpoint.cpp */; };
+		46B51E6122FDF48C00D3DAC2 /* LLDBUtils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4661C7212274FAD800F38F5D /* LLDBUtils.cpp */; };
+		46B51E6222FDF48C00D3DAC2 /* VSCode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4661C7242274FAD800F38F5D /* VSCode.cpp */; };
+		46B51E6322FDF48C00D3DAC2 /* IOStream.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4661C7262274FAD800F38F5D /* IOStream.cpp */; };
+		46B51E6422FDF48C00D3DAC2 /* lldb-vscode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4661C7292274FAD800F38F5D /* lldb-vscode.cpp */; };
+		46B51E6522FDF48C00D3DAC2 /* BreakpointBase.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4661C7162274FAD800F38F5D /* BreakpointBase.cpp */; };
+		46B51E6622FDF48C00D3DAC2 /* JSONUtils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4661C7192274FAD800F38F5D /* JSONUtils.cpp */; };
+		46B51E6722FDF48C00D3DAC2 /* FunctionBreakpoint.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4661C71A2274FAD800F38F5D /* FunctionBreakpoint.cpp */; };
+		46B51E6922FDF48C00D3DAC2 /* libncurses.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 239481851C59EBDD00DF7168 /* libncurses.dylib */; };
+		46B51E6A22FDF48C00D3DAC2 /* LLDB.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 26680207115FD0ED008E1FE4 /* LLDB.framework */; };
 		490A36C0180F0E6F00BA31F8 /* PlatformWindows.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 490A36BD180F0E6F00BA31F8 /* PlatformWindows.cpp */; };
 		490A966B1628C3BF00F0002E /* SBDeclaration.h in Headers */ = {isa = PBXBuildFile; fileRef = 9452573816262CEF00325455 /* SBDeclaration.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		49224F8A1BB9E4D20041AB62 /* SwiftUserExpression.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 49224F881BB9DA370041AB62 /* SwiftUserExpression.cpp */; };
@@ -2641,6 +2652,7 @@
 		4661C7282274FAD800F38F5D /* BreakpointBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BreakpointBase.h; sourceTree = "<group>"; };
 		4661C7292274FAD800F38F5D /* lldb-vscode.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "lldb-vscode.cpp"; sourceTree = "<group>"; };
 		4661C72A2274FAD800F38F5D /* SourceReference.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SourceReference.h; sourceTree = "<group>"; };
+		46B51E7422FDF48C00D3DAC2 /* lldb-vscode-slim */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "lldb-vscode-slim"; sourceTree = BUILT_PRODUCTS_DIR; };
 		4906FD4012F2255300A2A77C /* ASTDumper.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = ASTDumper.cpp; path = ExpressionParser/Clang/ASTDumper.cpp; sourceTree = "<group>"; };
 		4906FD4412F2257600A2A77C /* ASTDumper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ASTDumper.h; path = ExpressionParser/Clang/ASTDumper.h; sourceTree = "<group>"; };
 		490A36BD180F0E6F00BA31F8 /* PlatformWindows.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = PlatformWindows.cpp; sourceTree = "<group>"; };
@@ -3527,6 +3539,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		46B51E6822FDF48C00D3DAC2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				46B51E6922FDF48C00D3DAC2 /* libncurses.dylib in Frameworks */,
+				46B51E6A22FDF48C00D3DAC2 /* LLDB.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		94A9285E1A92B81600771D51 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -3606,6 +3627,7 @@
 				239504D41BDD451400963CEA /* lldb-gtest */,
 				23CB15561D66DA9300EDDDE1 /* lldb-gtest */,
 				464CB9362278D742004025E5 /* lldb-vscode */,
+				46B51E7422FDF48C00D3DAC2 /* lldb-vscode-slim */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -7447,6 +7469,22 @@
 			productReference = 464CB9362278D742004025E5 /* lldb-vscode */;
 			productType = "com.apple.product-type.tool";
 		};
+		46B51E5B22FDF48C00D3DAC2 /* lldb-vscode-slim */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 46B51E6B22FDF48C00D3DAC2 /* Build configuration list for PBXNativeTarget "lldb-vscode-slim" */;
+			buildPhases = (
+				46B51E5E22FDF48C00D3DAC2 /* Sources */,
+				46B51E6822FDF48C00D3DAC2 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "lldb-vscode-slim";
+			productName = "lldb-mi";
+			productReference = 46B51E7422FDF48C00D3DAC2 /* lldb-vscode-slim */;
+			productType = "com.apple.product-type.tool";
+		};
 		942829BF1A89835300521B30 /* lldb-argdumper */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 942829C41A89835400521B30 /* Build configuration list for PBXNativeTarget "lldb-argdumper" */;
@@ -7575,6 +7613,7 @@
 				941E2F521AE81CA100AAA711 /* PrebuiltSwiftDebugBuild */,
 				942829BF1A89835300521B30 /* lldb-argdumper */,
 				464CB8DC2278D742004025E5 /* lldb-vscode */,
+				46B51E5B22FDF48C00D3DAC2 /* lldb-vscode-slim */,
 			);
 		};
 /* End PBXProject section */
@@ -8785,6 +8824,22 @@
 				464CB9372278D75C004025E5 /* BreakpointBase.cpp in Sources */,
 				464CB9382278D76B004025E5 /* JSONUtils.cpp in Sources */,
 				464CB9392278D76B004025E5 /* FunctionBreakpoint.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		46B51E5E22FDF48C00D3DAC2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				46B51E5F22FDF48C00D3DAC2 /* ExceptionBreakpoint.cpp in Sources */,
+				46B51E6022FDF48C00D3DAC2 /* SourceBreakpoint.cpp in Sources */,
+				46B51E6122FDF48C00D3DAC2 /* LLDBUtils.cpp in Sources */,
+				46B51E6222FDF48C00D3DAC2 /* VSCode.cpp in Sources */,
+				46B51E6322FDF48C00D3DAC2 /* IOStream.cpp in Sources */,
+				46B51E6422FDF48C00D3DAC2 /* lldb-vscode.cpp in Sources */,
+				46B51E6522FDF48C00D3DAC2 /* BreakpointBase.cpp in Sources */,
+				46B51E6622FDF48C00D3DAC2 /* JSONUtils.cpp in Sources */,
+				46B51E6722FDF48C00D3DAC2 /* FunctionBreakpoint.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -12043,6 +12098,303 @@
 			name = "CustomSwift-RelWithDebInfo";
 		};
 		464CB9352278D742004025E5 /* BuildAndIntegration */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				COPY_PHASE_STRIP = YES;
+				CURRENT_PROJECT_VERSION = 360.0.0;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = "$(LLDB_TOOLS_INSTALL_DIR)";
+				MTL_ENABLE_DEBUG_INFO = NO;
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"$(inherited)",
+					"-sectcreate",
+					__TEXT,
+					__info_plist,
+					"$(PROJECT_DIR)/tools/lldb-mi/lldb-Info.plist",
+					"-Wl,-rpath,@loader_path/../../../System/Library/PrivateFrameworks",
+					"-filelist",
+					"$(LLVM_BUILD_DIR)/archives.txt",
+				);
+				"OTHER_LDFLAGS[sdk=macosx*]" = (
+					"$(inherited)",
+					"-sectcreate",
+					__TEXT,
+					__info_plist,
+					"$(PROJECT_DIR)/tools/lldb-mi/lldb-Info.plist",
+					"-Wl,-rpath,@loader_path/../../Library/PrivateFrameworks/",
+					"-Wl,-rpath,@loader_path/../../../SharedFrameworks",
+					"-Wl,-rpath,@loader_path/../../System/Library/PrivateFrameworks",
+					"-Wl,-rpath,@loader_path/../../Library/PrivateFrameworks",
+					"-filelist",
+					"$(LLVM_BUILD_DIR)/archives.txt",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				STRIP_INSTALLED_PRODUCT = YES;
+				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/include $(SRCROOT)/source $(LLVM_SOURCE_DIR)/include $(LLVM_SOURCE_DIR)/tools/clang/include $(LLVM_BUILD_DIR)/$(LLVM_BUILD_DIR_ARCH)/include $(LLVM_BUILD_DIR)/$(LLVM_BUILD_DIR_ARCH)/tools/clang/include $(LLVM_SOURCE_DIR)/tools/swift/include $(LLVM_BUILD_DIR)/$(LLVM_BUILD_DIR_ARCH)/tools/swift/include $(LLVM_SOURCE_DIR)/tools/swift/lib $(LLVM_BUILD_DIR)/$(SWIFT_BUILD_DIR_ARCH)/include $(LLVM_BUILD_DIR)/$(LLVM_BUILD_DIR_ARCH)/lib/Target/ARM $(CONFIGURATION_BUILD_DIR)";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = BuildAndIntegration;
+		};
+		46B51E6C22FDF48C00D3DAC2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CURRENT_PROJECT_VERSION = 360.0.0;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = "$(LLDB_TOOLS_INSTALL_DIR)";
+				MTL_ENABLE_DEBUG_INFO = YES;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-sectcreate",
+					__TEXT,
+					__info_plist,
+					"$(PROJECT_DIR)/tools/lldb-mi/lldb-Info.plist",
+					"-Wl,-rpath,@loader_path/",
+					"-filelist",
+					"$(LLVM_BUILD_DIR)/archives.txt",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/include $(SRCROOT)/source $(LLVM_SOURCE_DIR)/include $(LLVM_SOURCE_DIR)/tools/clang/include $(LLVM_BUILD_DIR)/include $(LLVM_BUILD_DIR)/$(LLVM_BUILD_DIR_ARCH)/include $(LLVM_BUILD_DIR)/llvm-macosx-$(LLVM_BUILD_DIR_ARCH)/include $(LLVM_BUILD_DIR)/$(LLVM_BUILD_DIR_ARCH)/tools/clang/include $(LLVM_BUILD_DIR)/$(LLVM_BUILD_DIR_ARCH)/lib/Target/ARM";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
+		};
+		46B51E6D22FDF48C00D3DAC2 /* DebugClang */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CURRENT_PROJECT_VERSION = 360.0.0;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = "$(LLDB_TOOLS_INSTALL_DIR)";
+				MTL_ENABLE_DEBUG_INFO = YES;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-sectcreate",
+					__TEXT,
+					__info_plist,
+					"$(PROJECT_DIR)/tools/lldb-mi/lldb-Info.plist",
+					"-Wl,-rpath,@loader_path/",
+					"-filelist",
+					"$(LLVM_BUILD_DIR)/archives.txt",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/include $(SRCROOT)/source $(LLVM_SOURCE_DIR)/include $(LLVM_SOURCE_DIR)/tools/clang/include $(LLVM_BUILD_DIR)/include $(LLVM_BUILD_DIR)/$(LLVM_BUILD_DIR_ARCH)/include $(LLVM_BUILD_DIR)/llvm-macosx-$(LLVM_BUILD_DIR_ARCH)/include $(LLVM_BUILD_DIR)/$(LLVM_BUILD_DIR_ARCH)/tools/clang/include $(LLVM_BUILD_DIR)/$(LLVM_BUILD_DIR_ARCH)/lib/Target/ARM";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = DebugClang;
+		};
+		46B51E6E22FDF48C00D3DAC2 /* DebugPresubmission */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CURRENT_PROJECT_VERSION = 360.0.0;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = "$(LLDB_TOOLS_INSTALL_DIR)";
+				MTL_ENABLE_DEBUG_INFO = YES;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-sectcreate",
+					__TEXT,
+					__info_plist,
+					"$(PROJECT_DIR)/tools/lldb-mi/lldb-Info.plist",
+					"-Wl,-rpath,@loader_path/",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRIP_INSTALLED_PRODUCT = YES;
+				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/include $(SRCROOT)/source $(LLVM_SOURCE_DIR)/include $(LLVM_BUILD_DIR)/$(LLVM_BUILD_DIR_ARCH)/include";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = DebugPresubmission;
+		};
+		46B51E6F22FDF48C00D3DAC2 /* CustomSwift-Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CURRENT_PROJECT_VERSION = 360.0.0;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = "$(LLDB_TOOLS_INSTALL_DIR)";
+				MTL_ENABLE_DEBUG_INFO = YES;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-filelist",
+					"$(LLDB_PATH_TO_LLVM_BUILD)/archives.txt",
+					"-sectcreate",
+					__TEXT,
+					__info_plist,
+					"$(PROJECT_DIR)/tools/lldb-mi/lldb-Info.plist",
+					"-Wl,-rpath,@loader_path/",
+					"-Wl,-rpath,@loader_path/../../System/Library/PrivateFrameworks",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/include $(LLDB_PATH_TO_LLVM_SOURCE)/include $(LLDB_PATH_TO_LLVM_BUILD)/include $(SRCROOT)/source";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = "CustomSwift-Debug";
+		};
+		46B51E7022FDF48C00D3DAC2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CURRENT_PROJECT_VERSION = 360.0.0;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = "$(LLDB_TOOLS_INSTALL_DIR)";
+				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-sectcreate",
+					__TEXT,
+					__info_plist,
+					"$(PROJECT_DIR)/tools/lldb-mi/lldb-Info.plist",
+					"-Wl,-rpath,@loader_path/",
+					"-filelist",
+					"$(LLVM_BUILD_DIR)/archives.txt",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/include $(SRCROOT)/source $(LLVM_SOURCE_DIR)/include $(LLVM_SOURCE_DIR)/tools/clang/include $(LLVM_BUILD_DIR)/include $(LLVM_BUILD_DIR)/$(LLVM_BUILD_DIR_ARCH)/include $(LLVM_BUILD_DIR)/llvm-macosx-$(LLVM_BUILD_DIR_ARCH)/include $(LLVM_BUILD_DIR)/$(LLVM_BUILD_DIR_ARCH)/tools/clang/include $(LLVM_BUILD_DIR)/$(LLVM_BUILD_DIR_ARCH)/lib/Target/ARM";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
+		};
+		46B51E7122FDF48C00D3DAC2 /* CustomSwift-Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CURRENT_PROJECT_VERSION = 360.0.0;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = "$(LLDB_TOOLS_INSTALL_DIR)";
+				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-filelist",
+					"$(LLDB_PATH_TO_LLVM_BUILD)/archives.txt",
+					"-sectcreate",
+					__TEXT,
+					__info_plist,
+					"$(PROJECT_DIR)/tools/lldb-mi/lldb-Info.plist",
+					"-Wl,-rpath,@loader_path/",
+					"-Wl,-rpath,@loader_path/../../System/Library/PrivateFrameworks",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/include $(LLDB_PATH_TO_LLVM_SOURCE)/include $(LLDB_PATH_TO_CLANG_SOURCE)/include $(LLDB_PATH_TO_SWIFT_SOURCE)/include $(LLDB_PATH_TO_LLVM_BUILD)/include $(LLDB_PATH_TO_LLVM_BUILD)/tools/clang/include $(LLDB_PATH_TO_SWIFT_BUILD)/include $(SRCROOT)/source";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = "CustomSwift-Release";
+		};
+		46B51E7222FDF48C00D3DAC2 /* CustomSwift-RelWithDebInfo */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CURRENT_PROJECT_VERSION = 360.0.0;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = "$(LLDB_TOOLS_INSTALL_DIR)";
+				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-filelist",
+					"$(LLDB_PATH_TO_LLVM_BUILD)/archives.txt",
+					"-sectcreate",
+					__TEXT,
+					__info_plist,
+					"$(PROJECT_DIR)/tools/lldb-mi/lldb-Info.plist",
+					"-Wl,-rpath,@loader_path/",
+					"-Wl,-rpath,@loader_path/../../System/Library/PrivateFrameworks",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/include $(LLDB_PATH_TO_LLVM_SOURCE)/include $(LLDB_PATH_TO_CLANG_SOURCE)/include $(LLDB_PATH_TO_SWIFT_SOURCE)/include $(LLDB_PATH_TO_LLVM_BUILD)/include $(LLDB_PATH_TO_LLVM_BUILD)/tools/clang/include $(LLDB_PATH_TO_SWIFT_BUILD)/include $(SRCROOT)/source $(CONFIGURATION_BUILD_DIR)";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = "CustomSwift-RelWithDebInfo";
+		};
+		46B51E7322FDF48C00D3DAC2 /* BuildAndIntegration */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
@@ -15453,6 +15805,21 @@
 				464CB9332278D742004025E5 /* CustomSwift-Release */,
 				464CB9342278D742004025E5 /* CustomSwift-RelWithDebInfo */,
 				464CB9352278D742004025E5 /* BuildAndIntegration */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = BuildAndIntegration;
+		};
+		46B51E6B22FDF48C00D3DAC2 /* Build configuration list for PBXNativeTarget "lldb-vscode-slim" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				46B51E6C22FDF48C00D3DAC2 /* Debug */,
+				46B51E6D22FDF48C00D3DAC2 /* DebugClang */,
+				46B51E6E22FDF48C00D3DAC2 /* DebugPresubmission */,
+				46B51E6F22FDF48C00D3DAC2 /* CustomSwift-Debug */,
+				46B51E7022FDF48C00D3DAC2 /* Release */,
+				46B51E7122FDF48C00D3DAC2 /* CustomSwift-Release */,
+				46B51E7222FDF48C00D3DAC2 /* CustomSwift-RelWithDebInfo */,
+				46B51E7322FDF48C00D3DAC2 /* BuildAndIntegration */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = BuildAndIntegration;
