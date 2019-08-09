@@ -69,50 +69,57 @@ enum LaunchMethod { Launch, Attach, AttachForSuspendedLaunch };
 
 enum VSCodeBroadcasterBits { eBroadcastBitStopEventThread = 1u << 0 };
 
-SOCKET AcceptConnection(int *portno) {
-  // Accept a socket connection from any host on "portno".
-  SOCKET newsockfd = -1;
-  struct sockaddr_in serv_addr, cli_addr;
+SOCKET OpenConnection(int *portno) {
+  struct sockaddr_in serv_addr;
   SOCKET sockfd = socket(AF_INET, SOCK_STREAM, 0);
   if (sockfd < 0) {
     if (g_vsc.log)
       *g_vsc.log << "error: opening socket (" << strerror(errno) << ")"
                  << std::endl;
-  } else {
-    memset((char *)&serv_addr, 0, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    // serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    serv_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    serv_addr.sin_port = htons(*portno);
-    socklen_t servlen = sizeof(serv_addr);
-    if (bind(sockfd, (struct sockaddr *)&serv_addr, servlen) < 0) {
-      if (g_vsc.log)
-        *g_vsc.log << "error: binding socket (" << strerror(errno) << ")"
-                   << std::endl;
-    } else {
-      listen(sockfd, 5);
-      if (getsockname(sockfd, (struct sockaddr *)&serv_addr, &servlen) < 0) {
-        // err
-        return -1;
-      }
-      *portno = ntohs(serv_addr.sin_port);
-      printf("Listening on port %i...\n", *portno);
-      fflush(stdout);
-      socklen_t clilen = sizeof(cli_addr);
-      newsockfd = llvm::sys::RetryAfterSignal(-1, accept,
-          sockfd, (struct sockaddr *)&cli_addr, &clilen);
-      if (newsockfd < 0)
-        if (g_vsc.log)
-          *g_vsc.log << "error: accept (" << strerror(errno) << ")"
-                     << std::endl;
-    }
+    return -1;
+  }
+  memset((char *)&serv_addr, 0, sizeof(serv_addr));
+  serv_addr.sin_family = AF_INET;
+  // serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+  serv_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+  serv_addr.sin_port = htons(*portno);
+  socklen_t servlen = sizeof(serv_addr);
+//  bool reuse = 1;
+//  setsockopt(sockfd,SOL_SOCKET,SO_REUSEADDR,&reuse,sizeof(int));
+  if (bind(sockfd, (struct sockaddr *)&serv_addr, servlen) < 0) {
+    if (g_vsc.log)
+      *g_vsc.log << "error: binding socket (" << strerror(errno) << ")"
+                 << std::endl;
+    return -1;
+  }
+  listen(sockfd, 5);
+  if (getsockname(sockfd, (struct sockaddr *)&serv_addr, &servlen) < 0) {
+    return -1;
+  }
+  *portno = ntohs(serv_addr.sin_port);
+  fflush(stdout);
+
+  return sockfd;
+}
+
+SOCKET AcceptConnection(SOCKET serv_sockfd, bool closeServer) {
+  struct sockaddr_in cli_addr;
+  socklen_t clilen = sizeof(cli_addr);
+  SOCKET cli_sockfd = llvm::sys::RetryAfterSignal(-1, accept,
+      serv_sockfd, (struct sockaddr *)&cli_addr, &clilen);
+  if (cli_sockfd < 0)
+    if (g_vsc.log)
+      *g_vsc.log << "error: accept (" << strerror(errno) << ")"
+                 << std::endl;
+  if (closeServer) {
 #if defined(_WIN32)
-    closesocket(sockfd);
+    closesocket(serv_sockfd);
 #else
-    close(sockfd);
+    close(serv_sockfd);
 #endif
   }
-  return newsockfd;
+
+  return cli_sockfd;
 }
 
 std::vector<const char *> MakeArgv(const llvm::ArrayRef<std::string> &strs) {
@@ -2785,12 +2792,27 @@ int main(int argc, char *argv[]) {
   bool is_connected = false;
   // Whether to continously listen for requests using a dynamic port for each session.
   bool dynamic_mode = false;
+  // If we have a second parameter than we are either in dynamic mode or have a
+  // manual port speicfied. Either way it is socket mode.
+  bool socketMode = argc == 2;
+  // Setting the port to 0 will cause the socket to bind the any available port.
+  int portno = dynamic_mode ? 0 : atoi(argv[1]);
+
+  SOCKET cli_sockfd = -1;
+  SOCKET serv_sockfd = -1;
+  if (socketMode) {
+    serv_sockfd = OpenConnection(&portno);
+    if (serv_sockfd < 0) {
+      printf("Failed to connect to port %d.\n", portno);
+      exit(9000);
+    }
+  }
 
   auto request_handlers = GetRequestHandlers();
   uint32_t packet_idx = 0;
   while (true) {
     if (!is_connected) {
-      if (argc == 2) {
+      if (socketMode) {
         const char *arg = argv[1];
         dynamic_mode = strcmp(arg, "-d") == 0;
 #if !defined(_WIN32)
@@ -2801,17 +2823,16 @@ int main(int argc, char *argv[]) {
 #else
           {
 #endif
-          // Setting the port to 0 will cause the socket to bind the any available port.
-          int portno = dynamic_mode ? 0 : atoi(argv[1]);
-          SOCKET socket_fd = -1;
           do {
-            socket_fd = AcceptConnection(&portno);
-            printf("Received request from fd %i.\n", socket_fd);
+            printf("Listening on port %i...\n", portno);
+            cli_sockfd = AcceptConnection(serv_sockfd, false);
+            printf("Connected to fd %i.\n", cli_sockfd);
             fflush(stdout);
-          } while (socket_fd < 0);
+            sleep(1);
+          } while (cli_sockfd < 0);
           is_connected = true;
-          g_vsc.input.descriptor = StreamDescriptor::from_socket(socket_fd, true);
-          g_vsc.output.descriptor = StreamDescriptor::from_socket(socket_fd, false);
+          g_vsc.input.descriptor = StreamDescriptor::from_socket(cli_sockfd, true);
+          g_vsc.output.descriptor = StreamDescriptor::from_socket(cli_sockfd, false);
         }
       } else {
         g_vsc.input.descriptor = StreamDescriptor::from_file(fileno(stdin), false);
@@ -2854,7 +2875,14 @@ int main(int argc, char *argv[]) {
       if (handler_pos != request_handlers.end()) {
         handler_pos->second(*object);
         if (command == "disconnect") {
-          if (!dynamic_mode) break;
+//          if (!dynamic_mode) break;
+          if(shutdown(cli_sockfd, SHUT_RDWR) < 0) {
+            printf("Failed shutdown: (errno %d) %s\n", errno, strerror(errno));
+          }
+          if(close(cli_sockfd) < 0) {
+            printf("Failed close: (errno %d) %s\n", errno, strerror(errno));
+          }
+          printf("Disconnected from fd %i.\n", cli_sockfd);
           is_connected = false;
           g_vsc.reset();
         }
