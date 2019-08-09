@@ -185,7 +185,8 @@ void SetValueForKey(lldb::SBValue &v, llvm::json::Object &object,
         }
       }
       break;
-      
+
+    case lldb::eTypeClassOther:
     case lldb::eTypeClassClass:
     case lldb::eTypeClassStruct:
       {

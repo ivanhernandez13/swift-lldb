@@ -112,8 +112,6 @@ SOCKET AcceptConnection(int *portno) {
     close(sockfd);
 #endif
   }
-  printf("SERV PORT: %d\n", ntohs(serv_addr.sin_port));
-  printf("CLI PORT: %d\n", ntohs(cli_addr.sin_port));
   return newsockfd;
 }
 
@@ -668,19 +666,25 @@ void request_completions(const llvm::json::Object &request) {
   lldb::SBCommandInterpreter interp = g_vsc.debugger.GetCommandInterpreter();
   
   auto text = GetString(arguments, "text");
-  auto column = (uint32_t)GetUnsigned(arguments, "column", 0);
-  auto count = interp.HandleCompletion(text.data(), column-1, 0, -1, matches);
-  
-  if (g_vsc.log) {
-    *g_vsc.log << "Found " << count << " matches for " << text.data() << " at column " << column << std::endl;
-  }
-  
-  for (auto i = 0; i < count; ++i) {
-    auto match = matches.GetStringAtIndex(i);
-    
-    llvm::json::Object target;
-    target.try_emplace("label", std::move(match));
-    targets.emplace_back(llvm::json::Value(std::move(target)));
+  // Older LLDB.frameworks will crash when handling a completion for a string
+  // that contains a backtick. Explicitly check for backticks and skip
+  // completions if there is one.
+  auto skip_completions = (text.find('`') != llvm::StringRef::npos);
+  if (!skip_completions) {
+    auto column = (uint32_t)GetUnsigned(arguments, "column", 0);
+    auto count = interp.HandleCompletion(text.data(), column-1, 0, -1, matches);
+
+    if (g_vsc.log) {
+      *g_vsc.log << "Found " << count << " matches for " << text.data() << " at column " << column << std::endl;
+    }
+
+    for (auto i = 0; i < count; ++i) {
+      auto match = matches.GetStringAtIndex(i);
+
+      llvm::json::Object target;
+      target.try_emplace("label", std::move(match));
+      targets.emplace_back(llvm::json::Value(std::move(target)));
+    }
   }
   
   body.try_emplace("targets", std::move(targets));
